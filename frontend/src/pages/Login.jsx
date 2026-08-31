@@ -15,28 +15,52 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const trimmedEmail = email ? email.trim() : '';
+    const trimmedPassword = password ? password.trim() : '';
+
+    // Validation: Empty email/ID or empty password must be rejected
+    if (!trimmedEmail || !trimmedPassword) {
+      setError('Please enter both Email/ID and Password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Mock login for demo if API fails
-      let token = 'mock-jwt-token';
-      let user = { id: 1, name: 'Procurement Officer', email };
+      // Prototype / Demo Mode Authentication:
+      // Accepts any non-empty email/ID and password while preserving the demo Officer profile (Priya Sharma)
+      let token = 'demo-jwt-token-' + Date.now();
+      let user = { 
+        id: 1, 
+        name: 'Priya Sharma', 
+        email: trimmedEmail,
+        role: 'officer'
+      };
 
       try {
-        const response = await authAPI.login(email, password);
-        token = response.data.access_token || response.data.token || token;
-        user = response.data.user || user;
-      } catch (err) {
-        console.warn('API login failed, using fallback mock login');
-        if (!email.includes('@')) {
-          throw new Error('Invalid credentials');
+        const response = await authAPI.login(trimmedEmail, trimmedPassword);
+        const resData = response?.data || response;
+        if (resData?.access_token) {
+          token = resData.access_token;
         }
+        if (resData?.user) {
+          user = {
+            ...user,
+            ...resData.user,
+            name: resData.user.name || 'Priya Sharma',
+            role: 'officer'
+          };
+        }
+      } catch (err) {
+        // Fallback for offline or prototype demo mode
+        console.log('Prototype demo login active for:', trimmedEmail);
       }
 
       login(token, user);
       navigate('/dashboard');
     } catch (err) {
-      setError('Invalid email or password. Check credentials and try again.');
+      setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -57,15 +81,14 @@ const Login = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           <div>
-            <label className="block text-sm font-medium text-slate-ink mb-1">Email Address</label>
+            <label className="block text-sm font-medium text-slate-ink mb-1">Email / Officer ID</label>
             <input 
-              type="email" 
+              type="text" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="officer@bidsetu.gov.in"
-              required
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-ink-navy focus:ring-1 focus:ring-ink-navy outline-none transition"
             />
           </div>
@@ -77,7 +100,6 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              required
               className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:border-ink-navy focus:ring-1 focus:ring-ink-navy outline-none transition"
             />
           </div>
@@ -92,7 +114,7 @@ const Login = () => {
         </form>
 
         <div className="mt-8 bg-gray-50 rounded-lg p-3 text-xs text-gray-500 text-center border border-gray-100">
-          Demo login: officer@bidsetu.gov.in / demo1234
+          Demo login: Enter any email/ID and password (e.g. test@gmail.com / 1234)
         </div>
       </div>
     </div>

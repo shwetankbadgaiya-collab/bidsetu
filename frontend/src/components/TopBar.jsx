@@ -6,8 +6,8 @@ const TopBar = ({ breadcrumbs = [] }) => {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'O';
-  const name = user?.name || 'Officer';
+  const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'R';
+  const name = user?.name || 'Rishi Badgaiyan';
 
   return (
     <div className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-10 sticky top-0">

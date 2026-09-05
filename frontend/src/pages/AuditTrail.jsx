@@ -3,14 +3,14 @@ import { useParams } from 'react-router-dom';
 import { auditAPI } from '../services/api';
 
 const MOCK_DATA = [
-  { timestamp: '2026-08-30T10:30:00', action: 'Bid documents uploaded', details: '5 documents uploaded for ABC Pvt Ltd', entity: 'document', user: 'Priya Sharma' },
+  { timestamp: '2026-08-30T10:30:00', action: 'Bid documents uploaded', details: '5 documents uploaded for ABC Pvt Ltd', entity: 'document', user: 'Rishi Badgaiyan' },
   { timestamp: '2026-08-30T10:31:00', action: 'OCR processing completed', details: 'All documents processed successfully', entity: 'document', user: 'System' },
   { timestamp: '2026-08-30T10:31:30', action: 'Data extraction completed', details: '15 fields extracted across 5 documents', entity: 'extraction', user: 'System' },
   { timestamp: '2026-08-30T10:32:00', action: 'Government source verification initiated', details: 'GST Portal, Udyam Portal, PAN Authority queried', entity: 'verification', user: 'System' },
   { timestamp: '2026-08-30T10:33:00', action: 'Verification completed', details: 'GST: Verified, Udyam: Verified, PAN: Matched, Authorization: Review', entity: 'verification', user: 'System' },
   { timestamp: '2026-08-30T10:34:00', action: 'Compliance analysis completed', details: 'Score: 82% — 1 requirement needs review', entity: 'compliance', user: 'System' },
   { timestamp: '2026-08-30T10:35:00', action: 'Risk assessment completed', details: 'Risk Level: MEDIUM — Authorization discrepancy flagged', entity: 'risk', user: 'System' },
-  { timestamp: '2026-08-30T10:36:00', action: 'Officer decision recorded: QUALIFIED', details: 'Decision by Officer Priya Sharma. Comments: "Authorization verified via phone call."', entity: 'decision', user: 'Priya Sharma' },
+  { timestamp: '2026-08-30T10:36:00', action: 'Officer decision recorded: QUALIFIED', details: 'Decision by Officer Rishi Badgaiyan. Comments: "Authorization verified via phone call."', entity: 'decision', user: 'Rishi Badgaiyan' },
 ];
 
 export default function AuditTrail() {

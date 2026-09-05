@@ -3,7 +3,7 @@ import { useAuth } from '../App';
 import StatusPill from '../components/StatusPill';
 
 export default function Settings() {
-  const { user } = useAuth() || { user: { name: 'Priya Sharma', email: 'priya.sharma@gov.in', role: 'Officer' } };
+  const { user } = useAuth() || { user: { name: 'Rishi Badgaiyan', email: 'officer@bidsetu.gov.in', role: 'Officer' } };
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">

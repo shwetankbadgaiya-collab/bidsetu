@@ -29,11 +29,11 @@ const Login = () => {
 
     try {
       // Prototype / Demo Mode Authentication:
-      // Accepts any non-empty email/ID and password while preserving the demo Officer profile (Priya Sharma)
+      // Accepts any non-empty email/ID and password while preserving the demo Officer profile (Rishi Badgaiyan)
       let token = 'demo-jwt-token-' + Date.now();
       let user = { 
         id: 1, 
-        name: 'Priya Sharma', 
+        name: 'Rishi Badgaiyan', 
         email: trimmedEmail,
         role: 'officer'
       };
@@ -48,7 +48,7 @@ const Login = () => {
           user = {
             ...user,
             ...resData.user,
-            name: resData.user.name || 'Priya Sharma',
+            name: resData.user.name || 'Rishi Badgaiyan',
             role: 'officer'
           };
         }

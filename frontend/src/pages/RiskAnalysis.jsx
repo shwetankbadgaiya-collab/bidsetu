@@ -4,83 +4,79 @@ import { riskAPI, bidsAPI, complianceAPI } from '../services/api';
 import StatusPill from '../components/StatusPill';
 import ComplianceRing from '../components/ComplianceRing';
 
-const MOCK_RISK_DATA = {
-  'BID001': {
-    bidder: 'Sunita Reddy', company: 'TechServe Solutions', bid_id: 'BID001',
-    score: 96, risk_level: 'LOW',
-    findings: [
-      { category: 'Document Authenticity', status: 'pass', detail: 'All documents verified against government sources' },
-      { category: 'GSTIN Validation', status: 'pass', detail: 'GSTIN 27FGHIJ5678K2Z3 matches GST Portal records' },
-      { category: 'Udyam Registration', status: 'pass', detail: 'UDYAM-MH-01-0000042 is active and valid' },
-      { category: 'PAN Verification', status: 'pass', detail: 'PAN FGHIJ5678K matches Income Tax records' },
-      { category: 'Experience Requirement', status: 'pass', detail: 'Meets minimum 3 years experience requirement' },
-      { category: 'Authorization', status: 'pass', detail: 'Authorization letter verified with matching company name' },
-    ],
-    recommendation: 'All documents verified. Bid meets all tender requirements. Low risk — recommended for qualification.',
-  },
-  'BID002': {
-    bidder: 'Amit Patel', company: 'Global Infra Corp', bid_id: 'BID002',
-    score: 45, risk_level: 'HIGH',
-    findings: [
-      { category: 'GSTIN Validation', status: 'fail', detail: 'GSTIN mismatch: Document shows 07KLMNO9012P3Z8, GST Portal shows 07KLMNX9999P3Z8' },
-      { category: 'Udyam Registration', status: 'fail', detail: 'Udyam certificate UDYAM-DL-02-0000099 has expired' },
-      { category: 'Declaration Document', status: 'fail', detail: 'Required declaration document is missing from submission' },
-      { category: 'PAN Verification', status: 'pass', detail: 'PAN KLMNO9012P matches records' },
-      { category: 'Authorization', status: 'review', detail: 'Authorization letter has company name discrepancy' },
-      { category: 'Experience Requirement', status: 'review', detail: 'Unable to verify experience from submitted documents' },
-    ],
-    recommendation: 'Critical compliance failures detected. GSTIN mismatch with government records. Udyam certificate expired. Declaration document missing. High risk — recommended for disqualification.',
-  },
-  'BID003': {
-    bidder: 'Vikram Mehta', company: 'ABC Pvt Ltd', bid_id: 'BID003',
-    score: 82, risk_level: 'MEDIUM',
-    findings: [
-      { category: 'GSTIN Validation', status: 'pass', detail: 'GSTIN 23ABCDE1234F1Z5 verified against GST Portal' },
-      { category: 'Udyam Registration', status: 'pass', detail: 'UDYAM-XX-00-0000001 is active and valid' },
-      { category: 'PAN Verification', status: 'pass', detail: 'PAN ABCDE1234F matches Income Tax records' },
-      { category: 'Authorization', status: 'review', detail: 'Company name on authorization: "ABC Private Limited" vs bid: "ABC Pvt Ltd"' },
-      { category: 'Experience Requirement', status: 'fail', detail: 'Minimum 3 years experience not evidenced in submitted documents' },
-      { category: 'Declaration Document', status: 'pass', detail: 'Self-declaration submitted and signed' },
-    ],
-    recommendation: 'Bid requires officer review. Authorization letter has a minor company name discrepancy. Experience requirement not evidenced. Medium risk.',
-  },
+const DEFAULT_RISK_DATA = {
+  bidder: 'Vikram Mehta', company: 'ABC Pvt Ltd', bid_id: 'BID003',
+  score: 82, risk_level: 'MEDIUM',
+  findings: [
+    { category: 'Document Authenticity', status: 'pass', detail: 'All submitted certificates parsed and validated' },
+    { category: 'GSTIN Validation', status: 'pass', detail: 'GST Registration verified against GST Portal records' },
+    { category: 'Udyam Registration', status: 'pass', detail: 'Udyam MSME certificate is active' },
+    { category: 'PAN Verification', status: 'pass', detail: 'PAN details match tax authority records' },
+    { category: 'Authorization', status: 'review', detail: 'Minor company name variation observed on authorization' },
+    { category: 'Tender Requirements', status: 'pass', detail: 'Mandatory technical parameters met' },
+  ],
+  recommendation: 'Bid requires officer review due to authorization letter discrepancy. Medium risk tier.',
 };
 
 export default function RiskAnalysis() {
   const { bidId } = useParams();
   const navigate = useNavigate();
-  const effectiveId = bidId || 'BID003';
-  const [data, setData] = useState(MOCK_RISK_DATA[effectiveId] || MOCK_RISK_DATA['BID003']);
+  const effectiveBidId = bidId || 'BID003';
+  
+  const [data, setData] = useState({ ...DEFAULT_RISK_DATA, bid_id: effectiveBidId });
+  const [bidInfo, setBidInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Try to get real data from API
-        const [riskRes, bidRes] = await Promise.allSettled([
-          riskAPI.getByBid(effectiveId),
-          bidsAPI.getById(effectiveId)
+        const [riskRes, bidRes, compRes] = await Promise.allSettled([
+          riskAPI.getByBid(effectiveBidId),
+          bidsAPI.getById(effectiveBidId),
+          complianceAPI.getByBid(effectiveBidId)
         ]);
 
-        let updated = { ...(MOCK_RISK_DATA[effectiveId] || MOCK_RISK_DATA['BID003']) };
+        let updated = { ...DEFAULT_RISK_DATA, bid_id: effectiveBidId };
 
         if (bidRes.status === 'fulfilled' && bidRes.value?.data) {
           const b = bidRes.value.data;
+          setBidInfo(b);
           updated.company = b.company_name || updated.company;
           updated.bidder = b.bidder_name || updated.bidder;
-          if (b.compliance_score !== undefined) updated.score = b.compliance_score;
+          if (b.compliance_score !== undefined && b.compliance_score > 0) updated.score = b.compliance_score;
           if (b.risk_level) updated.risk_level = b.risk_level.toUpperCase();
+        }
+
+        if (compRes.status === 'fulfilled' && compRes.value?.data) {
+          const c = compRes.value.data;
+          if (c.score !== undefined) updated.score = c.score;
+          if (c.risk_level) updated.risk_level = c.risk_level.toUpperCase();
+          if (c.recommendation) updated.recommendation = c.recommendation;
+          
+          if (c.results && Array.isArray(c.results) && c.results.length > 0) {
+            updated.findings = c.results.map((r, i) => ({
+              category: r.requirement.replace(/_/g, ' ').toUpperCase(),
+              status: r.status === 'pass' ? 'pass' : (r.status === 'review' ? 'review' : 'fail'),
+              detail: r.evidence ? `${r.requirement}: ${r.evidence}` : `Verification status: ${r.status}`
+            }));
+          }
+        }
+
+        if (riskRes.status === 'fulfilled' && riskRes.value?.data) {
+          const r = riskRes.value.data;
+          if (r.risk_level) updated.risk_level = r.risk_level.toUpperCase();
+          if (r.recommendation) updated.recommendation = r.recommendation;
         }
 
         setData(updated);
       } catch (err) {
-        console.error('Using mock risk data', err);
+        console.warn('Using mock risk data', err);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [effectiveId]);
+  }, [effectiveBidId]);
 
   const riskColor = {
     LOW: 'text-verified-teal',
@@ -94,35 +90,40 @@ export default function RiskAnalysis() {
     HIGH: 'bg-seal-red/10 border-seal-red',
   };
 
-  const passCount = data.findings.filter(f => f.status === 'pass').length;
-  const failCount = data.findings.filter(f => f.status === 'fail').length;
-  const reviewCount = data.findings.filter(f => f.status === 'review').length;
+  const passCount = data.findings ? data.findings.filter(f => f.status === 'pass').length : 4;
+  const failCount = data.findings ? data.findings.filter(f => f.status === 'fail').length : 0;
+  const reviewCount = data.findings ? data.findings.filter(f => f.status === 'review').length : 1;
+
+  const tenderInfo = bidInfo?.tender_code ? `${bidInfo.tender_code} — ${bidInfo.tender_title}` : '';
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="font-display text-3xl text-ink-navy">Risk Analysis</h1>
-        <p className="text-slate-ink mt-1">Bid #{effectiveId} — {data.company}</p>
+        <p className="text-slate-ink mt-1 font-mono">
+          Bid ID: <span className="font-bold text-ink-navy">{effectiveBidId}</span> | Vendor: <span className="font-semibold">{data.company}</span>
+          {tenderInfo && <span className="text-gray-500 font-sans text-xs ml-2">({tenderInfo})</span>}
+        </p>
       </div>
 
       {/* Top Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Risk Level Card */}
-        <div className={`rounded-xl p-6 border-2 ${riskBg[data.risk_level] || riskBg.MEDIUM} flex flex-col items-center justify-center`}>
+        <div className={`rounded-xl p-6 border-2 ${riskBg[data.risk_level] || riskBg.MEDIUM} flex flex-col items-center justify-center bg-white shadow-sm`}>
           <p className="text-sm font-medium text-gray-600 mb-2">Overall Risk Level</p>
-          <p className={`text-4xl font-bold font-display ${riskColor[data.risk_level] || ''}`}>{data.risk_level}</p>
-          <p className="text-xs text-gray-500 mt-2">Based on {data.findings.length} risk factors</p>
+          <p className={`text-4xl font-bold font-display ${riskColor[data.risk_level] || 'text-review-amber'}`}>{data.risk_level}</p>
+          <p className="text-xs text-gray-500 mt-2">Based on {data.findings?.length || 5} risk factors</p>
         </div>
 
         {/* Compliance Score */}
-        <div className="bg-white rounded-xl p-6 shadow-sm flex flex-col items-center justify-center">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center">
           <p className="text-sm font-medium text-gray-600 mb-2">Compliance Score</p>
           <ComplianceRing score={data.score} size={120} />
         </div>
 
         {/* Factor Summary */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <p className="text-sm font-medium text-gray-600 mb-4">Factor Summary</p>
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <p className="text-sm font-medium text-gray-600 mb-4">Factor Breakdown</p>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-ink">Passed</span>
@@ -141,10 +142,10 @@ export default function RiskAnalysis() {
       </div>
 
       {/* Risk Factors */}
-      <div className="bg-white rounded-xl p-6 shadow-sm">
-        <h2 className="font-semibold text-xl text-ink-navy mb-4">Risk Factors</h2>
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <h2 className="font-semibold text-xl text-ink-navy mb-4">Evaluated Risk Factors</h2>
         <div className="space-y-3">
-          {data.findings.map((finding, idx) => {
+          {data.findings && data.findings.map((finding, idx) => {
             let icon, statusClass;
             if (finding.status === 'pass') {
               icon = <span className="text-verified-teal font-bold text-lg">✓</span>;
@@ -174,7 +175,7 @@ export default function RiskAnalysis() {
       </div>
 
       {/* AI Recommendation */}
-      <div className={`rounded-xl p-6 shadow-sm border-l-4 bg-white ${
+      <div className={`rounded-xl p-6 shadow-sm border-l-4 bg-white border-t border-r border-b border-gray-100 ${
         data.risk_level === 'HIGH' ? 'border-seal-red' : data.risk_level === 'LOW' ? 'border-verified-teal' : 'border-review-amber'
       }`}>
         <h2 className="font-semibold text-lg text-ink-navy mb-3 flex items-center gap-2">
@@ -187,14 +188,14 @@ export default function RiskAnalysis() {
       {/* Navigation */}
       <div className="flex justify-between">
         <button
-          onClick={() => navigate(`/compliance/${effectiveId}`)}
+          onClick={() => navigate(`/compliance/${encodeURIComponent(effectiveBidId)}`)}
           className="px-6 py-3 border-2 border-ink-navy text-ink-navy rounded-lg font-semibold hover:bg-gray-50 transition"
         >
           ← Back to Compliance
         </button>
         <button
-          onClick={() => navigate(`/decision/${effectiveId}`)}
-          className="bg-ink-navy text-white px-8 py-3 rounded-lg font-bold hover:bg-ink-navy/90 transition"
+          onClick={() => navigate(`/decision/${encodeURIComponent(effectiveBidId)}`)}
+          className="bg-ink-navy text-white px-8 py-3 rounded-lg font-bold hover:bg-ink-navy/90 transition shadow"
         >
           Proceed to Officer Decision
         </button>

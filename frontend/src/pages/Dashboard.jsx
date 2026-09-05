@@ -1,112 +1,149 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DataTable from '../components/DataTable';
 import StatusPill from '../components/StatusPill';
 import { bidsAPI } from '../services/api';
 
-const Dashboard = () => {
-  const [bids, setBids] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+const FALLBACK_BIDS = [
+  { bid_id: 'BID001', company: 'TechServe Solutions', status: 'qualified', risk: 'low', score: 96 },
+  { bid_id: 'BID002', company: 'Global Infra Corp', status: 'disqualified', risk: 'high', score: 45 },
+  { bid_id: 'BID003', company: 'ABC Pvt Ltd', status: 'pending_review', risk: 'medium', score: 82 },
+  { bid_id: 'BID004', company: 'Apex Dynamics Ltd', status: 'pending', risk: 'low', score: 88 },
+];
 
-  const fallbackData = [
-    { bid_id: 'BID001', company: 'TechServe Solutions', status: 'qualified', risk: 'low', score: 96 },
-    { bid_id: 'BID002', company: 'Global Infra Corp', status: 'disqualified', risk: 'high', score: 45 },
-    { bid_id: 'BID003', company: 'ABC Pvt Ltd', status: 'pending_review', risk: 'medium', score: 82 },
-    { bid_id: 'BID004', company: 'Nexus Enterprises', status: 'verified', risk: 'low', score: 91 },
-    { bid_id: 'BID005', company: 'Horizon Tech', status: 'pending', risk: 'medium', score: 68 },
-    { bid_id: 'BID006', company: 'Pinnacle Systems', status: 'verified', risk: 'low', score: 88 },
-  ];
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const [bids, setBids] = useState(FALLBACK_BIDS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchBids = async () => {
       try {
         const response = await bidsAPI.getAll();
-        if (response.data && response.data.length > 0) {
-          setBids(response.data);
-        } else {
-          setBids(fallbackData);
+        const data = response?.data || response;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map(b => ({
+            bid_id: b.bid_id,
+            company: b.company_name || 'Vendor Corp',
+            tender_code: b.tender_code || 'TDR-2026-014',
+            status: b.status || 'pending',
+            risk: b.risk_level || 'low',
+            score: b.compliance_score || 0
+          }));
+          setBids(mapped);
         }
       } catch (error) {
-        console.warn('Using fallback data for bids');
-        setBids(fallbackData);
+        console.warn('Using fallback data due to API error:', error);
       } finally {
         setLoading(false);
       }
     };
+
     fetchBids();
   }, []);
 
-  const stats = {
-    total: bids.length,
-    verified: bids.filter(b => ['verified', 'qualified', 'pass'].includes((b.status || '').toLowerCase())).length,
-    pending: bids.filter(b => ['pending', 'pending_review', 'review'].includes((b.status || '').toLowerCase())).length,
-    nonCompliant: bids.filter(b => ['disqualified', 'failed'].includes((b.status || '').toLowerCase())).length,
-    highRisk: bids.filter(b => ((b.risk_level || b.risk || '')).toLowerCase() === 'high').length,
-  };
+  const totalBids = bids.length;
+  const verifiedCount = bids.filter(b => b.status === 'verified' || b.status === 'qualified').length;
+  const pendingCount = bids.filter(b => b.status === 'pending' || b.status === 'pending_review').length;
+  const nonCompliantCount = bids.filter(b => b.status === 'disqualified' || b.score < 60).length;
+  const highRiskCount = bids.filter(b => b.risk === 'high').length;
+
+  const stats = [
+    { label: 'Total Bids', value: totalBids, border: 'border-ink-navy' },
+    { label: 'Qualified / Verified', value: verifiedCount, border: 'border-verified-teal' },
+    { label: 'Pending Review', value: pendingCount, border: 'border-review-amber' },
+    { label: 'Non-Compliant', value: nonCompliantCount, border: 'border-seal-red' },
+    { label: 'High Risk', value: highRiskCount, border: 'border-seal-red' },
+  ];
 
   const columns = [
-    { key: 'bid_id', label: 'Bid ID', render: (val) => <span className="font-mono text-xs font-semibold">{val}</span> },
-    { key: 'company', label: 'Bidder', render: (_, row) => row.company_name || row.company || row.bidder_name },
-    { key: 'status', label: 'Status', render: (val) => <StatusPill status={val} /> },
-    { key: 'risk', label: 'Risk', render: (_, row) => <StatusPill status={row.risk_level || row.risk} /> },
-    { key: 'score', label: 'Compliance Score', render: (_, row) => <span className="font-semibold">{row.compliance_score !== undefined ? row.compliance_score : (row.score || 0)}%</span> },
-    { key: 'action', label: 'Action', render: (_, row) => (
-      <button 
-        onClick={(e) => { e.stopPropagation(); navigate(`/verification/${row.bid_id}`); }}
-        className="text-ink-navy hover:text-ink-navy/80 font-medium text-sm underline"
-      >
-        View
-      </button>
-    )}
+    { 
+      key: 'bid_id', 
+      label: 'Bid ID',
+      render: (val) => <span className="font-mono font-semibold text-ink-navy">{val}</span>
+    },
+    { 
+      key: 'company', 
+      label: 'Bidder / Vendor',
+      render: (val, row) => (
+        <div>
+          <div className="font-medium text-slate-ink">{val}</div>
+          {row.tender_code && <div className="text-xs text-gray-400 font-mono">{row.tender_code}</div>}
+        </div>
+      )
+    },
+    { 
+      key: 'status', 
+      label: 'Status',
+      render: (val) => <StatusPill status={val} />
+    },
+    { 
+      key: 'risk', 
+      label: 'Risk',
+      render: (val) => <StatusPill status={val} />
+    },
+    { 
+      key: 'score', 
+      label: 'Compliance',
+      render: (val) => (
+        <div className="flex items-center gap-2">
+          <div className="w-16 bg-gray-200 rounded-full h-2 overflow-hidden">
+            <div 
+              className={`h-full ${val >= 80 ? 'bg-verified-teal' : val >= 60 ? 'bg-review-amber' : 'bg-seal-red'}`} 
+              style={{ width: `${val}%` }}
+            />
+          </div>
+          <span className="text-sm font-semibold">{val}%</span>
+        </div>
+      )
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      render: (_, row) => (
+        <button 
+          onClick={() => navigate(`/verification/${encodeURIComponent(row.bid_id)}`)}
+          className="text-xs font-semibold text-ink-navy bg-paper hover:bg-gray-200 border border-gray-300 px-3 py-1.5 rounded transition shadow-sm"
+        >
+          View Verification
+        </button>
+      )
+    }
   ];
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-2xl text-ink-navy">Dashboard</h1>
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="font-display text-2xl text-ink-navy">Procurement Dashboard</h1>
+          <p className="text-slate-ink text-sm mt-1">Live overview of submitted bids and statutory verification</p>
+        </div>
         <button 
           onClick={() => navigate('/tenders/create')}
-          className="border border-ink-navy text-ink-navy px-4 py-2 rounded-lg font-medium hover:bg-ink-navy/5 transition text-sm"
+          className="bg-ink-navy text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-ink-navy/90 transition flex items-center gap-2 shadow"
         >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
           Create New Tender
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-ink-navy">
-          <div className="text-3xl font-bold text-slate-ink mb-1">{stats.total}</div>
-          <div className="text-sm text-gray-500">Total Bids</div>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-verified-teal">
-          <div className="text-3xl font-bold text-slate-ink mb-1">{stats.verified}</div>
-          <div className="text-sm text-gray-500">Verified Bids</div>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-review-amber">
-          <div className="text-3xl font-bold text-slate-ink mb-1">{stats.pending}</div>
-          <div className="text-sm text-gray-500">Pending Bids</div>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-seal-red">
-          <div className="text-3xl font-bold text-slate-ink mb-1">{stats.nonCompliant}</div>
-          <div className="text-sm text-gray-500">Non-Compliant</div>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-seal-red">
-          <div className="text-3xl font-bold text-slate-ink mb-1">{stats.highRisk}</div>
-          <div className="text-sm text-gray-500">High Risk</div>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {stats.map((stat, idx) => (
+          <div key={idx} className={`bg-white rounded-xl p-5 shadow-sm border-l-4 ${stat.border} border border-gray-100`}>
+            <div className="text-3xl font-bold text-slate-ink font-display">{stat.value}</div>
+            <div className="text-xs text-gray-500 font-medium mt-1 uppercase tracking-wider">{stat.label}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-ink mb-4">Recent Bids</h2>
-        {loading ? (
-          <div className="text-center py-10 text-gray-500">Loading bids...</div>
-        ) : (
-          <DataTable 
-            columns={columns} 
-            data={bids} 
-            onRowClick={(row) => navigate(`/verification/${row.bid_id}`)}
-          />
-        )}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="font-semibold text-lg text-ink-navy">Active Tender Bids</h2>
+          <span className="text-xs text-gray-500">Showing all {bids.length} submitted bids</span>
+        </div>
+        <DataTable columns={columns} data={bids} onRowClick={(row) => navigate(`/verification/${encodeURIComponent(row.bid_id)}`)} />
       </div>
     </div>
   );

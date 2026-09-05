@@ -1,15 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 
-// Pages
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CreateTender from './pages/CreateTender';
 import Upload from './pages/Upload';
 import Processing from './pages/Processing';
-
 import VerificationResult from './pages/VerificationResult';
 import Compliance from './pages/Compliance';
 import RiskAnalysis from './pages/RiskAnalysis';
@@ -18,47 +17,42 @@ import AuditTrail from './pages/AuditTrail';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext();
+
+export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user')) || null;
+    } catch {
+      return null;
     }
-    setIsLoading(false);
-  }, []);
+  });
 
   const login = (newToken, newUser) => {
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  const isAuthenticated = !!token;
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!token, login, logout }}>
+    <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -71,41 +65,46 @@ const Layout = () => {
   const path = location.pathname;
 
   const getBreadcrumbs = () => {
+    const activeTender = sessionStorage.getItem('active_tender_id') || 'Tenders';
+
     if (path.includes('/verification/')) {
-      const id = path.split('/verification/')[1] || 'BID003';
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: `Bid #${id}`, path }];
+      const id = path.split('/verification/')[1] || 'Overview';
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Verification', path }];
     }
     if (path.includes('/compliance/')) {
-      const id = path.split('/compliance/')[1] || 'BID003';
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Compliance', path }];
+      const id = path.split('/compliance/')[1] || 'Overview';
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Compliance Analysis', path }];
     }
     if (path.includes('/risk/')) {
-      const id = path.split('/risk/')[1] || 'BID003';
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Risk Analysis', path }];
+      const id = path.split('/risk/')[1] || 'Overview';
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Risk Analysis', path }];
     }
     if (path.includes('/decision/')) {
-      const id = path.split('/decision/')[1] || 'BID003';
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Officer Decision', path }];
+      const id = path.split('/decision/')[1] || 'Overview';
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Officer Decision', path }];
     }
     if (path.includes('/reports')) {
-      return [{ label: 'Dashboard', path: '/dashboard' }, { label: 'Reports', path }];
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: 'Procurement Reports', path }];
     }
     if (path.includes('/audit')) {
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: 'Audit Trail', path }];
+      const id = path.split('/audit/')[1];
+      return id 
+        ? [{ label: 'Dashboard', path: '/dashboard' }, { label: `Bid #${id}`, path: `/verification/${id}` }, { label: 'Audit Trail', path }]
+        : [{ label: 'Dashboard', path: '/dashboard' }, { label: 'System Audit Trail', path }];
     }
     if (path.includes('/upload')) {
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: 'Upload Documents', path }];
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: activeTender, path: '/dashboard' }, { label: 'Upload Documents', path }];
     }
     if (path.includes('/processing')) {
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: 'AI Verification', path }];
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: 'AI Verification Pipeline', path }];
     }
     if (path.includes('/tenders/create')) {
-      return [{ label: 'Tenders', path: '/dashboard' }, { label: 'Create Tender', path }];
+      return [{ label: 'Dashboard', path: '/dashboard' }, { label: 'Create Tender', path }];
     }
     if (path.includes('/settings')) {
       return [{ label: 'Settings', path: '/settings' }, { label: 'Profile', path }];
     }
-    return [{ label: 'Tenders', path: '/dashboard' }, { label: 'TDR-2026-014', path: '/dashboard' }, { label: 'Dashboard', path: '/dashboard' }];
+    return [{ label: 'Government e-Marketplace', path: '/dashboard' }, { label: 'Dashboard', path: '/dashboard' }];
   };
 
   return (
@@ -113,23 +112,9 @@ const Layout = () => {
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopBar breadcrumbs={getBreadcrumbs()} />
-        <main className="flex-1 overflow-y-auto p-8">
-          <Outlet />
-        </main>
-      </div>
-    </div>
-  );
-};
-
-function App() {
-  return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          
-          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <main className="flex-1 overflow-y-auto p-8 bg-paper">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/tenders/create" element={<CreateTender />} />
             <Route path="/upload" element={<Upload />} />
@@ -138,15 +123,30 @@ function App() {
             <Route path="/compliance/:bidId" element={<Compliance />} />
             <Route path="/risk/:bidId" element={<RiskAnalysis />} />
             <Route path="/decision/:bidId" element={<Decision />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/audit" element={<AuditTrail />} />
             <Route path="/audit/:bidId" element={<AuditTrail />} />
+            <Route path="/audit" element={<AuditTrail />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
-          </Route>
+          </Routes>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          } />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
 }
-
-export default App;

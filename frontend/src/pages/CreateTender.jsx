@@ -13,11 +13,11 @@ const CreateTender = () => {
   const [loading, setLoading] = useState(false);
 
   const [reqs, setReqs] = useState({
-    gst: true,
-    udyam: true,
-    pan: true,
-    authLetter: true,
-    experience: true,
+    gst_valid: true,
+    udyam_valid: true,
+    pan_required: true,
+    authorization_required: true,
+    min_experience_years: 3,
     other: ''
   });
 
@@ -29,17 +29,31 @@ const CreateTender = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await tendersAPI.create({
+      const payload = {
         tender_id: tenderId,
-        title,
+        title: title.trim(),
         department,
-        requirements: reqs
-      });
-      // Try block will succeed if mock API exists, else catch
-      navigate('/upload');
+        requirements: {
+          ...reqs,
+          min_experience_years: reqs.experience !== false ? Number(experience) : 0
+        }
+      };
+
+      const res = await tendersAPI.create(payload);
+      const createdTender = res?.data || res;
+      const targetTenderId = createdTender?.tender_id || tenderId;
+      
+      // Store in session storage so it is immediately available
+      sessionStorage.setItem('active_tender_id', targetTenderId);
+      sessionStorage.setItem('active_tender_title', title);
+
+      // Navigate to upload with the newly created Tender ID
+      navigate(`/upload?tender_id=${encodeURIComponent(targetTenderId)}`);
     } catch (error) {
-      console.warn('API call failed, continuing to upload anyway for demo');
-      navigate('/upload');
+      console.warn('API call failed, continuing to upload with local ID:', tenderId);
+      sessionStorage.setItem('active_tender_id', tenderId);
+      sessionStorage.setItem('active_tender_title', title);
+      navigate(`/upload?tender_id=${encodeURIComponent(tenderId)}`);
     } finally {
       setLoading(false);
     }
@@ -59,8 +73,8 @@ const CreateTender = () => {
                 <input 
                   type="text" 
                   value={tenderId} 
-                  readOnly 
-                  className="w-full font-mono text-sm border border-gray-300 bg-gray-50 rounded-lg px-4 py-2 text-gray-600 outline-none"
+                  onChange={(e) => setTenderId(e.target.value)}
+                  className="w-full font-mono text-sm border border-gray-300 bg-gray-50 rounded-lg px-4 py-2 text-ink-navy font-semibold outline-none"
                 />
                 <button 
                   type="button" 
@@ -107,27 +121,27 @@ const CreateTender = () => {
             
             <div className="space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={reqs.gst} onChange={() => handleToggle('gst')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
+                <input type="checkbox" checked={reqs.gst_valid} onChange={() => handleToggle('gst_valid')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
                 <span className="text-sm text-slate-ink">GST Registration Valid</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={reqs.udyam} onChange={() => handleToggle('udyam')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
+                <input type="checkbox" checked={reqs.udyam_valid} onChange={() => handleToggle('udyam_valid')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
                 <span className="text-sm text-slate-ink">Udyam Registration Valid</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={reqs.pan} onChange={() => handleToggle('pan')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
+                <input type="checkbox" checked={reqs.pan_required} onChange={() => handleToggle('pan_required')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
                 <span className="text-sm text-slate-ink">PAN Card Required</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={reqs.authLetter} onChange={() => handleToggle('authLetter')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
+                <input type="checkbox" checked={reqs.authorization_required} onChange={() => handleToggle('authorization_required')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
                 <span className="text-sm text-slate-ink">Authorization Letter Required</span>
               </label>
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={reqs.experience} onChange={() => handleToggle('experience')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
+                  <input type="checkbox" checked={reqs.min_experience_years !== false} onChange={() => handleToggle('min_experience_years')} className="w-4 h-4 text-ink-navy rounded border-gray-300 focus:ring-ink-navy" />
                   <span className="text-sm text-slate-ink">Minimum Experience</span>
                 </label>
-                {reqs.experience && (
+                {reqs.min_experience_years !== false && (
                   <div className="flex items-center gap-2">
                     <input type="number" min="1" max="50" value={experience} onChange={(e) => setExperience(e.target.value)} className="w-16 border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:border-ink-navy" />
                     <span className="text-sm text-gray-500">years</span>
